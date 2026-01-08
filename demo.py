@@ -51,16 +51,23 @@ CAFE_OUTLETS = [
 # -------------------------------------------------
 @st.cache_resource
 def get_connection():
-    if "postgres" not in st.secrets:
-        st.error("🚨 Missing Database Secrets! Please configure `[postgres]` in `.streamlit/secrets.toml` or Streamlit Cloud Secrets.")
-        st.stop()
-
+    # Try getting secrets first
+    if "postgres" in st.secrets:
+        return psycopg2.connect(
+            host=st.secrets["postgres"]["host"],
+            port=st.secrets["postgres"]["port"],
+            database=st.secrets["postgres"]["dbname"],
+            user=st.secrets["postgres"]["user"],
+            password=st.secrets["postgres"]["password"]
+        )
+    
+    # Fallback to local default credentials
     return psycopg2.connect(
-        host=st.secrets["postgres"]["host"],
-        port=st.secrets["postgres"]["port"],
-        database=st.secrets["postgres"]["dbname"],
-        user=st.secrets["postgres"]["user"],
-        password=st.secrets["postgres"]["password"]
+        host="localhost",
+        database="dummy_db",
+        user="postgres",
+        password="root@1234",
+        port="5432"
     )
 
 conn = get_connection()
