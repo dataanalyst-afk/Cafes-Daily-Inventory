@@ -63,6 +63,8 @@ def get_connection():
                 )
             except psycopg2.OperationalError as e: # Specific handling for OperationalError
                 st.error(f"🚨 Database connection failed (OperationalError)! Check host, port, user, password. Error: {e}")
+                if "localhost" in st.secrets["postgres"]["host"] or "127.0.0.1" in st.secrets["postgres"]["host"]:
+                    st.warning("💡 Hint: You are trying to connect to 'localhost' via Secrets. This works locally but FAILS on Streamlit Cloud. You need a hosted database.")
                 st.stop()
         except psycopg2.Error as e: # General psycopg2 error handling
             st.error(f"🚨 Connection Failed! Check your Streamlit Secrets or database configuration. Error: {e}")

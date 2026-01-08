@@ -62,6 +62,8 @@ def get_connection():
             )
         except psycopg2.Error as e:
             st.error(f"🚨 Connection Failed! Check your Streamlit Secrets. Error: {e}")
+            if "localhost" in st.secrets["postgres"]["host"] or "127.0.0.1" in st.secrets["postgres"]["host"]:
+                st.warning("💡 Hint: You are trying to connect to 'localhost' via Secrets. This works locally but FAILS on Streamlit Cloud (because the Cloud container has no database). You need a hosted database (like Supabase, Neon, RDS, etc.).")
             st.stop()
     
     # Fallback to local default credentials
