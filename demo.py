@@ -67,7 +67,7 @@ cursor = conn.cursor()
 # -------------------------------------------------
 page = st.sidebar.radio(
     "📋 Select Page",
-    ["Opening Stock", "Daily Inventory", "Daily Report", "Cafe Report", "Item Report"],
+    ["Opening Stock", "Daily Inventory"],
     key="sidebar_page"
 )
 
@@ -142,96 +142,3 @@ if page == "Daily Inventory":
         )
         conn.commit()
         st.success("✅ Daily inventory saved successfully")
-
-# =================================================
-# DAILY REPORT PAGE
-# =================================================
-if page == "Daily Report":
-    st.title("📅 Daily Stock Report")
-    
-    report_date = st.date_input("Select Date", value=date.today())
-    
-    if st.button("🔍 Fetch Report"):
-        cursor.execute(
-            """
-            SELECT cafeoutlet, category, item_name, closing_stock, stock_date 
-            FROM dummy 
-            WHERE stock_date = %s
-            ORDER BY cafeoutlet, category, item_name
-            """,
-            (report_date,)
-        )
-        data = cursor.fetchall()
-        
-        if data:
-            import pandas as pd
-            df = pd.DataFrame(data, columns=["Cafe", "Category", "Item", "Closing Stock", "Date"])
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.info("No data found for the selected date.")
-
-# =================================================
-# CAFE REPORT PAGE
-# =================================================
-if page == "Cafe Report":
-    st.title("🏪 Cafe Stock Report")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        cafe_select = st.selectbox("Select Cafe", CAFE_OUTLETS)
-    with col2:
-        start_date = st.date_input("Start Date", value=date.today())
-        end_date = st.date_input("End Date", value=date.today())
-
-    if st.button("🔍 Fetch Cafe Report"):
-        cursor.execute(
-            """
-            SELECT stock_date, category, item_name, closing_stock
-            FROM dummy 
-            WHERE cafeoutlet = %s AND stock_date BETWEEN %s AND %s
-            ORDER BY stock_date DESC, category, item_name
-            """,
-            (cafe_select, start_date, end_date)
-        )
-        data = cursor.fetchall()
-        
-        if data:
-            import pandas as pd
-            df = pd.DataFrame(data, columns=["Date", "Category", "Item", "Closing Stock"])
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.info("No data found for the selected criteria.")
-
-# =================================================
-# ITEM REPORT PAGE
-# =================================================
-if page == "Item Report":
-    st.title("📦 Item Stock Report")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        cat_select = st.selectbox("Select Category", list(CATEGORY_ITEMS.keys()))
-    with col2:
-        item_select = st.selectbox("Select Item", CATEGORY_ITEMS[cat_select])
-    with col3:
-        start_date_item = st.date_input("From Date", value=date.today())
-        end_date_item = st.date_input("To Date", value=date.today())
-
-    if st.button("🔍 Fetch Item Report"):
-        cursor.execute(
-            """
-            SELECT stock_date, cafeoutlet, closing_stock
-            FROM dummy 
-            WHERE item_name = %s AND stock_date BETWEEN %s AND %s
-            ORDER BY stock_date DESC, cafeoutlet
-            """,
-            (item_select, start_date_item, end_date_item)
-        )
-        data = cursor.fetchall()
-        
-        if data:
-            import pandas as pd
-            df = pd.DataFrame(data, columns=["Date", "Cafe", "Closing Stock"])
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.info("No data found for the selected criteria.")
