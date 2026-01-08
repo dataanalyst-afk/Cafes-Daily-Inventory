@@ -66,13 +66,18 @@ def get_connection():
             st.stop()
     
     # Fallback to local default credentials
-    return psycopg2.connect(
-        host="localhost",
-        database="dummy_db",
-        user="postgres",
-        password="root@1234",
-        port="5432"
-    )
+    try:
+        return psycopg2.connect(
+            host="localhost",
+            database="dummy_db",
+            user="postgres",
+            password="root@1234",
+            port="5432"
+        )
+    except psycopg2.OperationalError as e:
+        st.error(f"🚨 Connection Failed! You are running continuously without secrets, so I tried connecting to `localhost` but failed. Error: {e}")
+        st.info("ℹ️ If you are on Streamlit Cloud, you MUST configure `.streamlit/secrets.toml` or the Secrets dashboard.")
+        st.stop()
 
 conn = get_connection()
 cursor = conn.cursor()
