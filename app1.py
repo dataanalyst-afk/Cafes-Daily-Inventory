@@ -1,5 +1,6 @@
 import streamlit as st
 import psycopg2
+import pandas as pd
 from datetime import date
 
 # -------------------------------------------------
@@ -15,17 +16,9 @@ st.set_page_config(
 # -------------------------------------------------
 st.markdown("""
 <style>
-.main {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-}
-.block-container {
-    padding-top: 1.5rem;
-    max-width: 900px;
-}
-label {
-    font-size: 14px !important;
-}
+.main { padding-top: 1rem; }
+.block-container { max-width: 900px; }
+label { font-size: 14px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,70 +26,72 @@ label {
 # MASTER DATA
 # -------------------------------------------------
 CATEGORY_ITEMS = {
-    "Cookies and Food" : ["Fudgy Pecan Cookies 50gms (72% Dark Chocolate)", "Vegan cranberry cookie", "Hazelnut brown butter cookie", "Dominican dark cookie", "Orange and poppy seed cookie", "Berry Good Bark (80gm)", "Pistachio Biscotti", "Spiced Biscotti", "Coffee protein bit" ],
+    "Cookies and Food": [
+        "Fudgy Pecan Cookies 50gms (72% Dark Chocolate)",
+        "Vegan cranberry cookie",
+        "Hazelnut brown butter cookie",
+        "Dominican dark cookie",
+        "Orange and poppy seed cookie",
+        "Berry Good Bark (80gm)",
+        "Pistachio Biscotti",
+        "Spiced Biscotti",
+        "Coffee protein bit"
+    ],
     "Single Serve Pour Over Bags": ["Cappuccino", "Latte", "Espresso"],
     "Syrups": ["Vanilla Syrup", "Caramel Syrup"],
     "Milk": ["Full Cream Milk", "Almond Milk"],
     "Cups": ["Small Cup", "Medium Cup", "Large Cup"]
 }
 
-CAFE_OUTLETS = [
-    "Downtown Cafe",
-    "Bandra Cafe",
-    "Andheri Cafe"
-]
+CAFE_OUTLETS = ["Downtown Cafe", "Bandra Cafe", "Andheri Cafe"]
 
 # -------------------------------------------------
-# DB CONNECTION
+# DB CONNECTION (SAFE)
 # -------------------------------------------------
 @st.cache_resource
 def get_connection():
     return psycopg2.connect(
-        host="localhost",
-        database="dummy_db",
-        user="postgres",
-        password="root@1234",
-        port="5432"
+        host=st.secrets["postgres"]["host"],
+        port=st.secrets["postgres"]["port"],
+        database=st.secrets["postgres"]["dbname"],
+        user=st.secrets["postgres"]["user"],
+        password=st.secrets["postgres"]["password"]
     )
 
-conn = get_connection()
-cursor = conn.cursor()
+def run_query(query, params=None, fetch=False):
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute(query, params)
+        if fetch:
+            return cur.fetchall()
+        conn.commit()
 
 # -------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # -------------------------------------------------
 page = st.sidebar.radio(
     "📋 Select Page",
-    ["Opening Stock", "Daily Inventory", "Daily Report", "Cafe Report", "Item Report"],
-    key="sidebar_page"
+    ["Opening Stock", "Daily Inventory", "Daily Report", "Cafe Report", "Item Report"]
 )
 
 # =================================================
-# OPENING STOCK PAGE → opening_stock table
+# OPENING STOCK
 # =================================================
 if page == "Opening Stock":
-
     st.title("🌅 Opening Stock Entry")
 
     col1, col2 = st.columns(2)
-
     with col1:
         stock_date = st.date_input("Date", value=date.today())
         cafeoutlet = st.selectbox("Cafe Outlet", CAFE_OUTLETS)
-        category = st.selectbox("Category", list(CATEGORY_ITEMS.keys()))
+        category = st.selectbox("Category", CATEGORY_ITEMS.keys())
 
     with col2:
         item = st.selectbox("Item", CATEGORY_ITEMS[category])
-        opening_stock = st.number_input(
-            "Opening Stock",
-            min_value=0.0,
-            step=0.1
-        )
-
-    st.markdown("###")
+        opening_stock = st.number_input("Opening Stock", min_value=0.0, step=0.1)
 
     if st.button("💾 Save Opening Stock", use_container_width=True):
-        cursor.execute(
+        run_query(
             """
             INSERT INTO opening_stock
             (stock_date, category, item_name, opening_stock, cafeoutlet)
@@ -104,35 +99,26 @@ if page == "Opening Stock":
             """,
             (stock_date, category, item, opening_stock, cafeoutlet)
         )
-        conn.commit()
-        st.success("✅ Opening stock saved successfully")
+        st.success("✅ Opening stock saved")
 
 # =================================================
-# DAILY INVENTORY PAGE → dummy table
+# DAILY INVENTORY
 # =================================================
 if page == "Daily Inventory":
-
     st.title("🌙 Daily Inventory Entry")
 
     col1, col2 = st.columns(2)
-
     with col1:
         stock_date = st.date_input("Date", value=date.today())
         cafeoutlet = st.selectbox("Cafe Outlet", CAFE_OUTLETS)
-        category = st.selectbox("Category", list(CATEGORY_ITEMS.keys()))
+        category = st.selectbox("Category", CATEGORY_ITEMS.keys())
 
     with col2:
         item = st.selectbox("Item", CATEGORY_ITEMS[category])
-        closing_stock = st.number_input(
-            "Closing Stock",
-            min_value=0.0,
-            step=0.1
-        )
-
-    st.markdown("###")
+        closing_stock = st.number_input("Closing Stock", min_value=0.0, step=0.1)
 
     if st.button("💾 Save Daily Inventory", use_container_width=True):
-        cursor.execute(
+        run_query(
             """
             INSERT INTO dummy
             (stock_date, category, item_name, closing_stock, cafeoutlet)
@@ -140,98 +126,86 @@ if page == "Daily Inventory":
             """,
             (stock_date, category, item, closing_stock, cafeoutlet)
         )
-        conn.commit()
-        st.success("✅ Daily inventory saved successfully")
+        st.success("✅ Daily inventory saved")
 
 # =================================================
-# DAILY REPORT PAGE
+# DAILY REPORT
 # =================================================
 if page == "Daily Report":
     st.title("📅 Daily Stock Report")
-    
     report_date = st.date_input("Select Date", value=date.today())
-    
+
     if st.button("🔍 Fetch Report"):
-        cursor.execute(
+        data = run_query(
             """
-            SELECT cafeoutlet, category, item_name, closing_stock, stock_date 
-            FROM dummy 
+            SELECT cafeoutlet, category, item_name, closing_stock, stock_date
+            FROM dummy
             WHERE stock_date = %s
             ORDER BY cafeoutlet, category, item_name
             """,
-            (report_date,)
+            (report_date,),
+            fetch=True
         )
-        data = cursor.fetchall()
-        
+
         if data:
-            import pandas as pd
             df = pd.DataFrame(data, columns=["Cafe", "Category", "Item", "Closing Stock", "Date"])
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("No data found for the selected date.")
+            st.info("No data found")
 
 # =================================================
-# CAFE REPORT PAGE
+# CAFE REPORT
 # =================================================
 if page == "Cafe Report":
     st.title("🏪 Cafe Stock Report")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        cafe_select = st.selectbox("Select Cafe", CAFE_OUTLETS)
-    with col2:
-        start_date = st.date_input("Start Date", value=date.today())
-        end_date = st.date_input("End Date", value=date.today())
+
+    cafe = st.selectbox("Select Cafe", CAFE_OUTLETS)
+    start = st.date_input("Start Date", value=date.today())
+    end = st.date_input("End Date", value=date.today())
 
     if st.button("🔍 Fetch Cafe Report"):
-        cursor.execute(
+        data = run_query(
             """
             SELECT stock_date, category, item_name, closing_stock
-            FROM dummy 
+            FROM dummy
             WHERE cafeoutlet = %s AND stock_date BETWEEN %s AND %s
-            ORDER BY stock_date DESC, category, item_name
+            ORDER BY stock_date DESC
             """,
-            (cafe_select, start_date, end_date)
+            (cafe, start, end),
+            fetch=True
         )
-        data = cursor.fetchall()
-        
+
         if data:
-            import pandas as pd
             df = pd.DataFrame(data, columns=["Date", "Category", "Item", "Closing Stock"])
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("No data found for the selected criteria.")
+            st.info("No data found")
 
 # =================================================
-# ITEM REPORT PAGE
+# ITEM REPORT
 # =================================================
 if page == "Item Report":
     st.title("📦 Item Stock Report")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        cat_select = st.selectbox("Select Category", list(CATEGORY_ITEMS.keys()))
-    with col2:
-        item_select = st.selectbox("Select Item", CATEGORY_ITEMS[cat_select])
-    with col3:
-        start_date_item = st.date_input("From Date", value=date.today())
-        end_date_item = st.date_input("To Date", value=date.today())
+
+    category = st.selectbox("Category", CATEGORY_ITEMS.keys())
+    item = st.selectbox("Item", CATEGORY_ITEMS[category])
+    start = st.date_input("From Date", value=date.today())
+    end = st.date_input("To Date", value=date.today())
 
     if st.button("🔍 Fetch Item Report"):
-        cursor.execute(
+        data = run_query(
             """
             SELECT stock_date, cafeoutlet, closing_stock
-            FROM dummy 
+            FROM dummy
             WHERE item_name = %s AND stock_date BETWEEN %s AND %s
-            ORDER BY stock_date DESC, cafeoutlet
+            ORDER BY stock_date DESC
             """,
-            (item_select, start_date_item, end_date_item)
+            (item, start, end),
+            fetch=True
         )
-        data = cursor.fetchall()
-        
+
         if data:
-            import pandas as pd
             df = pd.DataFrame(data, columns=["Date", "Cafe", "Closing Stock"])
             st.dataframe(df, use_container_width=True)
         else:
-            st.info("No data found for the selected criteria.")
+            st.info("No data found")
