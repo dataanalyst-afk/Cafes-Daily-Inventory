@@ -50,6 +50,10 @@ CAFE_OUTLETS = ["Downtown Cafe", "Bandra Cafe", "Andheri Cafe"]
 # -------------------------------------------------
 @st.cache_resource
 def get_connection():
+    if "postgres" not in st.secrets:
+        st.error("🚨 Missing Database Secrets! Please configure `[postgres]` in `.streamlit/secrets.toml` or Streamlit Cloud Secrets.")
+        st.stop()
+        
     return psycopg2.connect(
         host=st.secrets["postgres"]["host"],
         port=st.secrets["postgres"]["port"],
@@ -120,7 +124,7 @@ if page == "Daily Inventory":
     if st.button("💾 Save Daily Inventory", use_container_width=True):
         run_query(
             """
-            INSERT INTO dummy
+            INSERT INTO daily_inventory
             (stock_date, category, item_name, closing_stock, cafeoutlet)
             VALUES (%s, %s, %s, %s, %s)
             """,
@@ -139,7 +143,7 @@ if page == "Daily Report":
         data = run_query(
             """
             SELECT cafeoutlet, category, item_name, closing_stock, stock_date
-            FROM dummy
+            FROM daily_inventory
             WHERE stock_date = %s
             ORDER BY cafeoutlet, category, item_name
             """,
@@ -167,7 +171,7 @@ if page == "Cafe Report":
         data = run_query(
             """
             SELECT stock_date, category, item_name, closing_stock
-            FROM dummy
+            FROM daily_inventory
             WHERE cafeoutlet = %s AND stock_date BETWEEN %s AND %s
             ORDER BY stock_date DESC
             """,
@@ -196,7 +200,7 @@ if page == "Item Report":
         data = run_query(
             """
             SELECT stock_date, cafeoutlet, closing_stock
-            FROM dummy
+            FROM daily_inventory
             WHERE item_name = %s AND stock_date BETWEEN %s AND %s
             ORDER BY stock_date DESC
             """,

@@ -50,12 +50,16 @@ CAFE_OUTLETS = [
 # -------------------------------------------------
 @st.cache_resource
 def get_connection():
+    if "postgres" not in st.secrets:
+        st.error("🚨 Missing Database Secrets! Please configure `[postgres]` in `.streamlit/secrets.toml` or Streamlit Cloud Secrets.")
+        st.stop()
+        
     return psycopg2.connect(
-        host="localhost",
-        database="dummy_db",
-        user="postgres",
-        password="root@1234",
-        port="5432"
+        host=st.secrets["postgres"]["host"],
+        port=st.secrets["postgres"]["port"],
+        database=st.secrets["postgres"]["dbname"],
+        user=st.secrets["postgres"]["user"],
+        password=st.secrets["postgres"]["password"]
     )
 
 conn = get_connection()
@@ -89,7 +93,7 @@ st.markdown("###")
 if st.button("💾 Save Entry", use_container_width=True):
     cursor.execute(
         """
-        INSERT INTO dummy
+        INSERT INTO daily_inventory
         (stock_date, category, item_name, closing_stock, cafeoutlet)
         VALUES (%s, %s, %s, %s, %s)
         """,
