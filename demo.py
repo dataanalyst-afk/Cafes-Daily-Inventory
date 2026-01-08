@@ -53,13 +53,17 @@ CAFE_OUTLETS = [
 def get_connection():
     # Try getting secrets first
     if "postgres" in st.secrets:
-        return psycopg2.connect(
-            host=st.secrets["postgres"]["host"],
-            port=st.secrets["postgres"]["port"],
-            database=st.secrets["postgres"]["dbname"],
-            user=st.secrets["postgres"]["user"],
-            password=st.secrets["postgres"]["password"]
-        )
+        try:
+            return psycopg2.connect(
+                host=st.secrets["postgres"]["host"],
+                port=st.secrets["postgres"]["port"],
+                database=st.secrets["postgres"]["dbname"],
+                user=st.secrets["postgres"]["user"],
+                password=st.secrets["postgres"]["password"]
+            )
+        except psycopg2.Error as e:
+            st.error(f"🚨 Connection Failed! Check your Streamlit Secrets. Error: {e}")
+            st.stop()
     
     # Fallback to local default credentials
     return psycopg2.connect(
